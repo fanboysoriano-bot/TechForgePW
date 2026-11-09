@@ -1,35 +1,45 @@
 // FRONTEND/carrito.js
-// Se carga DESPUÉS de app.js. No modifica app.js: solo lo "envuelve".
-//  - Restaura el carrito guardado al abrir el catálogo
-//  - Guarda el carrito en localStorage cada vez que cambia
-//  - Agrega un botón "Ver carrito y pagar" al mini-panel
+// Se carga DESPUÉS de app.js (en index.html). No modifica app.js: solo lo "envuelve".
+//  - Agrega el botón "Visualizar carrito" debajo de "Vaciar pedido"
+//  - Guarda el carrito en localStorage para que carrito.html lo lea
 
 (function () {
     const KEY = 'tf_cart';
 
-    // 1) Restaurar carrito guardado (cart es la variable de app.js)
+    // 1) Botón "Visualizar carrito" (debajo de "Vaciar pedido")
+    try {
+        const panel = document.getElementById('pedido');
+        if (panel && !document.getElementById('btnVerCarrito')) {
+            const btn = document.createElement('button');
+            btn.id = 'btnVerCarrito';
+            btn.className = 'vc';
+            btn.type = 'button';
+            btn.style.marginTop = '8px';
+            btn.textContent = 'Visualizar carrito';
+            btn.onclick = () => { window.location.href = 'carrito.html'; };
+
+            const vaciar = panel.querySelector('.vc');
+            if (vaciar) vaciar.insertAdjacentElement('afterend', btn);
+            else panel.appendChild(btn);
+        }
+    } catch (e) {
+        console.error('carrito.js (botón):', e);
+    }
+
+    // 2) Restaurar y guardar el carrito (cart y upd vienen de app.js)
     try {
         const guardado = JSON.parse(localStorage.getItem(KEY) || '{}');
         if (guardado && typeof guardado === 'object') cart = guardado;
-    } catch (e) { /* si falla, se queda vacío */ }
 
-    // 2) Guardar en cada cambio
-    const originalUpd = upd;
-    upd = function () {
-        originalUpd();
-        try { localStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {}
-    };
+        const originalUpd = upd;
+        upd = function () {
+            originalUpd();
+            try { localStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {}
+        };
 
-    // 3) Botón hacia la página del carrito completo
-    const panel = document.getElementById('pedido');
-    const vaciar = panel && panel.querySelector('.vc');
-    if (panel && vaciar) {
-        const btn = document.createElement('button');
-        btn.className = 'vc';
-        btn.type = 'button';
-        btn.style.marginBottom = '8px';
-        btn.textContent = 'Ver carrito y pagar';
-        btn.onclick = () => { window.location.href = 'carrito.html'; };
-        panel.insertBefore(btn, vaciar);
+        // Guarda de inmediato lo que ya hay en el carrito
+        localStorage.setItem(KEY, JSON.stringify(cart));
+    } catch (e) {
+        console.error('carrito.js (guardado):', e);
     }
 })();
