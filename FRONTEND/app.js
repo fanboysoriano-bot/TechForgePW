@@ -49,9 +49,14 @@ function imagenProducto(x) {
     const imagenes = Array.isArray(x.imagenes) ? x.imagenes : [];
 
     // Priorizar las imágenes alojadas en Cloudinary
-    const url = imagenes.find(img =>
+    const url =
+    imagenes.find(img =>
         typeof img === "string" &&
         img.includes("res.cloudinary.com")
+    ) ||
+    imagenes.find(img =>
+        typeof img === "string" &&
+        img.startsWith("https://")
     );
 
     // Si no hay imagen de Cloudinary, utilizar el icono
