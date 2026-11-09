@@ -44,6 +44,34 @@ let productoDetalleActual = null;
 
 const ic = x =>
     `<i class="fa-solid fa-${IC[x.subcategoria] || "microchip"}"></i>`;
+// Obtener y mostrar la imagen del producto
+function imagenProducto(x) {
+    const imagenes = Array.isArray(x.imagenes) ? x.imagenes : [];
+
+    // Priorizar las imágenes alojadas en Cloudinary
+    const url = imagenes.find(img =>
+        typeof img === "string" &&
+        img.includes("res.cloudinary.com")
+    );
+
+    // Si no hay imagen de Cloudinary, utilizar el icono
+    if (!url) return ic(x);
+
+    const nombre = String(x.nombre || "Producto").replace(/"/g, "&quot;");
+
+    return `
+        <img
+            src="${url}"
+            alt="${nombre}"
+            loading="lazy"
+            style="width:100%; height:100%; object-fit:contain; display:block;"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
+        >
+        <span style="display:none; width:100%; height:100%; place-items:center;">
+            ${ic(x)}
+        </span>
+    `;
+}
 
 function card(x) {
     const stockMinimo = x.gestion_stock?.stock_minimo ?? 0;
@@ -61,9 +89,9 @@ function card(x) {
             ${t ? `<div class="tag ${t[1]}">${t[0]}</div>` : ""}
 
             <div class="im" style="--h:${HUE[x.catIndex || 0]}"
-                 onclick="det('${x.sku}')">
-                ${ic(x)}
-            </div>
+     onclick="det('${x.sku}')">
+    ${imagenProducto(x)}
+</div>
 
             <div class="ip">
                 <div>
@@ -179,8 +207,8 @@ function det(sku) {
         </button>
 
         <div class="mi" style="--h:${HUE[x.catIndex || 0]}">
-            ${ic(x)}
-        </div>
+    ${imagenProducto(x)}
+</div>
 
         <div class="mb">
             <h3>${x.nombre}</h3>
