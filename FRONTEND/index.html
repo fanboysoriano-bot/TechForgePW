@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechForge | Hardware y tecnología para tu PC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="hw">
+      <nav id="mp">
+        <a href="#" class="brand">TECHFORGE</a>
+        <div class="mc">
+          <form class="sb" onsubmit="return false">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="q" type="search" placeholder="Buscar componentes o marcas..." aria-label="Buscar">
+          </form>
+          <button class="cart" id="cartToggleBtn" onclick="toggleCart()">
+            <i class="fa-solid fa-bag-shopping"></i>
+            <span>Pedido</span>
+            <b id="cnt">0</b>
+          </button>
+        </div>
+      </nav>
+      <nav class="bc" id="cats"></nav>
+    </div>
+
+    <header id="hn">
+      <div class="logo"><i class="fa-solid fa-microchip"></i></div>
+      <div>
+        <h1>TechForge</h1>
+        <p>Hardware y tecnología para tu PC</p>
+      </div>
+      <div class="badges">
+        <span><i class="fa-solid fa-microchip"></i>Componentes de PC</span>
+        <span><i class="fa-solid fa-keyboard"></i>Periféricos</span>
+        <span><i class="fa-solid fa-wifi"></i>Redes</span>
+        <span><i class="fa-solid fa-warehouse"></i>Stock por almacén</span>
+      </div>
+    </header>
+
+    <div class="cp">
+      <div class="fl">
+        <label>Marca <select id="fm"><option value="">Todas</option></select></label>
+        <label>Ordenar <select id="fo">
+          <option value="">Destacados primero</option>
+          <option value="a">Precio: menor a mayor</option>
+          <option value="d">Precio: mayor a menor</option>
+        </select></label>
+        <label><input type="checkbox" id="fd"> Solo disponibles</label>
+        <span id="res">0 productos</span>
+      </div>
+      
+      <!-- Contenedor vacío preparado para recibir documentos de MongoDB -->
+      <section id="productos">
+        <div class="vacio" style="padding: 60px 20px; text-align: center;">
+            <i class="fa-solid fa-server" style="font-size: 48px; color: #c5a059; margin-bottom: 15px; display: block;"></i>
+            <h3 style="font-family: Georgia, serif; margin-bottom: 8px;">Esperando conexión con la API REST (MongoDB)</h3>
+            <p style="color: #666; font-size: 13px;">Los registros y colecciones polimórficas aparecerán aquí una vez que el backend inyecte los datos.</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Panel de Carrito de Compras -->
+    <aside class="wd" id="pedido">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h4 style="margin:0;">Tu pedido</h4>
+            <button onclick="toggleCart()" style="background:none; color:#aaa; font-size:16px; cursor:pointer;">&times;</button>
+        </div>
+        <ul id="pl"></ul>
+        <div id="tot"></div>
+        <button class="vc" onclick="clearCart()">Vaciar pedido</button>
+    </aside>
+
+    <button class="wd" id="cn" onclick="about()">
+        <span style="color:#c5a059;font:bold 12px Georgia,serif;background:none;padding:0;text-transform:none">Conócenos</span>
+        <i class="fa-solid fa-hammer"></i>
+        <span>Ver proyecto</span>
+    </button>
+
+    <div class="ov" id="ov"><div class="md" id="md"></div></div>
+
+    <footer>
+      <p>&copy; 2026 TechForge. Prototipo académico de catálogo e-commerce.</p>
+      <p>Bases de Datos NoSQL &middot; 6CM68 &middot; UPIICSA, IPN</p>
+      <p>Gutiérrez Díaz Rubén Agustín &middot; Lorenzo Cruz Victor David &middot; Melo Manriquez Dante Isaias &middot; Soriano Nieva Miguel</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
