@@ -3,10 +3,14 @@ const dns = require('dns');
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const { Redis } = require('@upstash/redis');
+const cloudinary = require('cloudinary').v2;
 const cors = require('cors');
 const path = require('path');
 
 require('dotenv').config();
+cloudinary.config({
+    secure: true
+});
 
 if (process.env.USE_GOOGLE_DNS === 'true') {
     dns.setServers(['8.8.8.8', '8.8.4.4']);
