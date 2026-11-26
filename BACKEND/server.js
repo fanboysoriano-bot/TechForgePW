@@ -82,47 +82,106 @@ function requireAuth(req, res, next) {
 }
 
 // Registro de usuario
+// Registro de usuario
 app.post('/api/auth/register', async (req, res) => {
     try {
         const nombre = String(req.body.nombre || '').trim();
         const email = String(req.body.email || '').trim().toLowerCase();
         const password = String(req.body.password || '');
 
+        const datosDireccion = req.body.direccion || {};
+
+        const direccion = {
+            calle: String(datosDireccion.calle || '').trim(),
+            numero: String(datosDireccion.numero || '').trim(),
+            colonia: String(datosDireccion.colonia || '').trim(),
+            municipio: String(datosDireccion.municipio || '').trim(),
+            estado: String(datosDireccion.estado || '').trim(),
+            codigoPostal: String(datosDireccion.codigoPostal || '').trim(),
+            referencias: String(datosDireccion.referencias || '').trim()
+        };
+
         if (nombre.length < 3 || nombre.length > 80) {
-            return res.status(400).json({ error: 'Escribe un nombre de entre 3 y 80 caracteres.' });
+            return res.status(400).json({
+                error: 'Escribe un nombre de entre 3 y 80 caracteres.'
+            });
         }
+
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) {
-            return res.status(400).json({ error: 'Escribe un correo electrónico válido.' });
+            return res.status(400).json({
+                error: 'Escribe un correo electrónico válido.'
+            });
         }
+
         if (password.length < 8 || password.length > 72) {
-            return res.status(400).json({ error: 'La contraseña debe tener entre 8 y 72 caracteres.' });
+            return res.status(400).json({
+                error: 'La contraseña debe tener entre 8 y 72 caracteres.'
+            });
+        }
+
+        if (
+            !direccion.calle ||
+            !direccion.numero ||
+            !direccion.colonia ||
+            !direccion.municipio ||
+            !direccion.estado ||
+            !/^\d{5}$/.test(direccion.codigoPostal)
+        ) {
+            return res.status(400).json({
+                error: 'Completa todos los campos obligatorios de tu dirección y verifica tu código postal.'
+            });
         }
 
         const usuarios = db.collection('usuarios');
+
         const existente = await usuarios.findOne({ email });
+
         if (existente) {
-            return res.status(409).json({ error: 'Ya existe una cuenta con ese correo.' });
+            return res.status(409).json({
+                error: 'Ya existe una cuenta con ese correo.'
+            });
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
+
         const result = await usuarios.insertOne({
             nombre,
             email,
             passwordHash,
+            direccion,
             creadoEn: new Date()
         });
 
-        createSessionCookie(res, { _id: result.insertedId, email });
+        const usuario = {
+            _id: result.insertedId,
+            nombre,
+            email,
+            direccion
+        };
+
+        createSessionCookie(res, usuario);
+
         return res.status(201).json({
             mensaje: 'Cuenta creada correctamente.',
-            usuario: { nombre, email }
+            usuario: {
+                nombre,
+                email,
+                direccion
+            }
         });
+
     } catch (error) {
         if (error.code === 11000) {
-            return res.status(409).json({ error: 'Ya existe una cuenta con ese correo.' });
+            return res.status(409).json({
+                error: 'Ya existe una cuenta con ese correo.'
+            });
         }
+
         console.error('Error al registrar usuario:', error);
-        return res.status(500).json({ error: 'No se pudo crear la cuenta.' });
+
+        return res.status(500).json({
+            error: 'No se pudo crear la cuenta.'
+        });
     }
 });
 
@@ -149,7 +208,11 @@ app.post('/api/auth/login', async (req, res) => {
         createSessionCookie(res, usuario);
         return res.json({
             mensaje: 'Sesión iniciada.',
-            usuario: { nombre: usuario.nombre, email: usuario.email }
+            usuario: {
+    nombre: usuario.nombre,
+    email: usuario.email,
+    direccion: usuario.direccion || null
+}
         });
     } catch (error) {
         console.error('Error al iniciar sesión:', error);
@@ -163,7 +226,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         const { ObjectId } = require('mongodb');
         const usuario = await db.collection('usuarios').findOne(
             { _id: new ObjectId(req.auth.sub) },
-            { projection: { nombre: 1, email: 1 } }
+            { projection: { nombre: 1, email: 1, direccion: 1 } }
         );
 
         if (!usuario) {
