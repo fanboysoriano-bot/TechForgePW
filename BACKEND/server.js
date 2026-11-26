@@ -82,6 +82,7 @@ function requireAuth(req, res, next) {
 }
 
 // Registro de usuario
+
 // Registro de usuario
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -89,51 +90,30 @@ app.post('/api/auth/register', async (req, res) => {
         const email = String(req.body.email || '').trim().toLowerCase();
         const password = String(req.body.password || '');
 
-        const datosDireccion = req.body.direccion || {};
-
-        const direccion = {
-            calle: String(datosDireccion.calle || '').trim(),
-            numero: String(datosDireccion.numero || '').trim(),
-            colonia: String(datosDireccion.colonia || '').trim(),
-            municipio: String(datosDireccion.municipio || '').trim(),
-            estado: String(datosDireccion.estado || '').trim(),
-            codigoPostal: String(datosDireccion.codigoPostal || '').trim(),
-            referencias: String(datosDireccion.referencias || '').trim()
-        };
-
+        // Validar nombre
         if (nombre.length < 3 || nombre.length > 80) {
             return res.status(400).json({
                 error: 'Escribe un nombre de entre 3 y 80 caracteres.'
             });
         }
 
+        // Validar correo
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) {
             return res.status(400).json({
                 error: 'Escribe un correo electrónico válido.'
             });
         }
 
+        // Validar contraseña
         if (password.length < 8 || password.length > 72) {
             return res.status(400).json({
                 error: 'La contraseña debe tener entre 8 y 72 caracteres.'
             });
         }
 
-        if (
-            !direccion.calle ||
-            !direccion.numero ||
-            !direccion.colonia ||
-            !direccion.municipio ||
-            !direccion.estado ||
-            !/^\d{5}$/.test(direccion.codigoPostal)
-        ) {
-            return res.status(400).json({
-                error: 'Completa todos los campos obligatorios de tu dirección y verifica tu código postal.'
-            });
-        }
-
         const usuarios = db.collection('usuarios');
 
+        // Comprobar si el correo ya existe
         const existente = await usuarios.findOne({ email });
 
         if (existente) {
@@ -142,31 +122,31 @@ app.post('/api/auth/register', async (req, res) => {
             });
         }
 
+        // Encriptar contraseña
         const passwordHash = await bcrypt.hash(password, 12);
 
+        // Crear usuario sin dirección
         const result = await usuarios.insertOne({
             nombre,
             email,
             passwordHash,
-            direccion,
             creadoEn: new Date()
         });
 
         const usuario = {
             _id: result.insertedId,
             nombre,
-            email,
-            direccion
+            email
         };
 
+        // Iniciar sesión automáticamente
         createSessionCookie(res, usuario);
 
         return res.status(201).json({
             mensaje: 'Cuenta creada correctamente.',
             usuario: {
                 nombre,
-                email,
-                direccion
+                email
             }
         });
 
@@ -184,6 +164,7 @@ app.post('/api/auth/register', async (req, res) => {
         });
     }
 });
+
 
 // Inicio de sesión
 app.post('/api/auth/login', async (req, res) => {
