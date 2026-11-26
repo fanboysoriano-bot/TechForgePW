@@ -39,7 +39,15 @@ const $ = id => document.getElementById(id);
 const mx = n => "$" + Number(n || 0).toLocaleString("es-MX") + " MXN";
 
 let st = { c: -1, q: "", m: "", o: "", a: false };
+const LS_CART = 'tf_cart';
+
 let cart = {};
+
+try {
+    cart = JSON.parse(localStorage.getItem(LS_CART)) || {};
+} catch (error) {
+    cart = {};
+}
 let productoDetalleActual = null;
 
 const ic = x =>
@@ -334,6 +342,7 @@ function clearCart() {
 
 // Actualizar carrito y totales
 function upd() {
+    localStorage.setItem(LS_CART, JSON.stringify(cart));
     const entries = Object.entries(cart)
         .filter(([sku, n]) => n > 0);
 

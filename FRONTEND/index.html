@@ -65,13 +65,27 @@
 
     <!-- Panel de Carrito de Compras -->
     <aside class="wd" id="pedido">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h4 style="margin:0;">Tu pedido</h4>
-            <button onclick="toggleCart()" style="background:none; color:#aaa; font-size:16px; cursor:pointer;">&times;</button>
-        </div>
-        <ul id="pl"></ul>
-        <div id="tot"></div>
-        <button class="vc" onclick="clearCart()">Vaciar pedido</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h4 style="margin:0;">Tu pedido</h4>
+        <button onclick="toggleCart()" style="background:none; color:#aaa; font-size:16px; cursor:pointer;">&times;</button>
+    </div>
+
+    <ul id="pl"></ul>
+    <div id="tot"></div>
+
+    <button class="vc" onclick="clearCart()">Vaciar pedido</button>
+
+    <a href="carrito.html"
+       class="btn-visualizar-carrito"
+       style="display:block; text-align:center; text-decoration:none; margin-top:10px;">
+        <i class="fa-solid fa-eye"></i>
+        Visualizar carrito
+    </a>
+</aside>
+   style="display:block; text-align:center; text-decoration:none; margin-top:10px;">
+    <i class="fa-solid fa-eye"></i>
+    Visualizar carrito
+</a>
     </aside>
 
     <button class="wd" id="cn" onclick="about()">
@@ -89,6 +103,5 @@
     </footer>
 
     <script src="app.js"></script>
-    <script src="carrito.js"></script>
 </body>
 </html>
