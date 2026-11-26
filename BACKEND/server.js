@@ -1,6 +1,6 @@
 const dns = require('dns');
 const express = require('express');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const { Redis } = require('@upstash/redis');
 const cloudinary = require('cloudinary').v2;
 const cors = require('cors');
@@ -240,7 +240,90 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
         res.status(401).json({ error: 'Sesión no válida.' });
     }
 });
+// Obtener la dirección guardada del usuario autenticado
+app.get('/api/auth/direccion', requireAuth, async (req, res) => {
+    try {
+        const usuario = await db.collection('usuarios').findOne(
+            { _id: new ObjectId(req.auth.sub) },
+            { projection: { direccion: 1 } }
+        );
 
+        if (!usuario) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json({ direccion: usuario.direccion || null });
+    } catch (error) {
+        console.error('Error al consultar dirección:', error);
+        res.status(500).json({ error: 'No se pudo consultar la dirección' });
+    }
+});
+
+// Guardar o actualizar la dirección del usuario autenticado
+app.put('/api/auth/direccion', requireAuth, async (req, res) => {
+    try {
+        const direccion = req.body.direccion;
+
+        // Permite borrar la dirección guardada
+        if (direccion === null) {
+            await db.collection('usuarios').updateOne(
+                { _id: new ObjectId(req.auth.sub) },
+                { $unset: { direccion: '' } }
+            );
+
+            return res.json({ mensaje: 'Dirección eliminada' });
+        }
+
+        const campos = [
+            'nombre', 'tel', 'calle', 'colonia',
+            'cp', 'ciudad', 'estado'
+        ];
+
+        if (!direccion || campos.some(campo =>
+            typeof direccion[campo] !== 'string' ||
+            !direccion[campo].trim()
+        )) {
+            return res.status(400).json({
+                error: 'Completa todos los campos obligatorios de la dirección'
+            });
+        }
+
+        if (!/^\d{10}$/.test(direccion.tel) ||
+            !/^\d{5}$/.test(direccion.cp)) {
+            return res.status(400).json({
+                error: 'El teléfono o código postal no tienen un formato válido'
+            });
+        }
+
+        const direccionLimpia = {
+            nombre: direccion.nombre.trim(),
+            tel: direccion.tel.trim(),
+            calle: direccion.calle.trim(),
+            colonia: direccion.colonia.trim(),
+            cp: direccion.cp.trim(),
+            ciudad: direccion.ciudad.trim(),
+            estado: direccion.estado.trim(),
+            ref: typeof direccion.ref === 'string' ? direccion.ref.trim() : ''
+        };
+
+        const resultado = await db.collection('usuarios').updateOne(
+            { _id: new ObjectId(req.auth.sub) },
+            { $set: { direccion: direccionLimpia } }
+        );
+
+        if (!resultado.matchedCount) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json({
+            mensaje: 'Dirección guardada correctamente',
+            direccion: direccionLimpia
+        });
+    } catch (error) {
+        console.error('Error al guardar dirección:', error);
+        res.status(500).json({ error: 'No se pudo guardar la dirección' });
+    }
+});
 // Cerrar sesión
 app.post('/api/auth/logout', (req, res) => {
     clearSessionCookie(res);
