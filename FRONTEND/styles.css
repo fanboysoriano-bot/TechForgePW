@@ -2055,3 +2055,227 @@ body:has(.top) footer {
         font-size: 12px;
     }
 }
+/* =========================================================
+   TECHFORGE - MEJORAS VISUALES EXCLUSIVAS DEL CHECKOUT
+   No modifica el catálogo ni sus botones.
+   ========================================================= */
+
+/* Fondo y encabezado */
+body:has(header.top) {
+    background:
+        radial-gradient(ellipse at top, #ffffff 0%, #f4f5f7 75%);
+}
+
+body:has(header.top) .top {
+    background: linear-gradient(110deg, #111111, #252525);
+}
+
+body:has(header.top) .top-in {
+    min-height: 85px;
+}
+
+/* Indicadores de pasos */
+body:has(header.top) .steps div {
+    border: 1px solid #383838;
+    background: rgba(255, 255, 255, .035);
+}
+
+body:has(header.top) .steps div.on {
+    border-color: var(--gold);
+    background: rgba(197, 160, 89, .15);
+}
+
+body:has(header.top) .steps div.done {
+    border-color: rgba(197, 160, 89, .35);
+}
+
+/* Tarjetas principales */
+body:has(header.top) #view > .card,
+body:has(header.top) #side.side {
+    border: 1px solid #e7e1d6;
+    border-radius: 15px;
+    box-shadow: 0 8px 28px rgba(25, 25, 25, .07);
+}
+
+/* Títulos */
+body:has(header.top) #view h2 {
+    position: relative;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e9e3d9;
+}
+
+body:has(header.top) #view h2::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 65px;
+    height: 3px;
+    border-radius: 5px;
+    background: var(--gold);
+}
+
+/* Productos del carrito */
+body:has(header.top) #view .item {
+    padding: 21px 0;
+    transition: background .2s;
+}
+
+body:has(header.top) #view .item .im {
+    border-color: #e9e4da;
+    border-radius: 12px;
+    background: #faf9f6;
+}
+
+body:has(header.top) #view .item h4 {
+    color: #191919;
+    font-size: 14px;
+}
+
+body:has(header.top) #view .item .sub {
+    color: var(--red);
+    font-size: 16px;
+}
+
+/* Selector de cantidades */
+body:has(header.top) .qty {
+    border-color: #dedbd5;
+    border-radius: 8px;
+}
+
+body:has(header.top) .qty button {
+    background: #f4f1eb;
+}
+
+body:has(header.top) .qty button:hover:not(:disabled) {
+    background: var(--gold);
+    color: #171717;
+}
+
+/* Botón eliminar */
+body:has(header.top) .del {
+    border-radius: 5px;
+    transition: .2s;
+}
+
+body:has(header.top) .del:hover {
+    background: var(--red-light);
+    text-decoration: none;
+}
+
+/* Resumen del pedido */
+body:has(header.top) #side.side {
+    border-top: 3px solid var(--gold);
+}
+
+body:has(header.top) #side h3 {
+    color: #171717;
+}
+
+body:has(header.top) #side .srow {
+    padding: 11px 0;
+}
+
+body:has(header.top) #side .srow.tot {
+    margin-top: 14px;
+    padding-top: 17px;
+    border-top: 1px solid #e4dfd6;
+    color: var(--red);
+    font-size: 21px;
+}
+
+/* Avisos */
+body:has(header.top) .hint,
+body:has(header.top) .demo {
+    border-color: #ead9b8;
+    border-radius: 10px;
+    background: #fffaf1;
+}
+
+/* Formularios */
+body:has(header.top) .formbox {
+    border-color: #e8e3da;
+    border-radius: 12px;
+    background: #faf9f6;
+}
+
+body:has(header.top) input.i {
+    border-color: #dedbd5;
+    border-radius: 8px;
+}
+
+body:has(header.top) input.i:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(197, 160, 89, .13);
+}
+
+/* Direcciones */
+body:has(header.top) .addr {
+    border-color: #e5e1d9;
+    border-radius: 11px;
+}
+
+body:has(header.top) .addr.sel {
+    border: 2px solid var(--gold);
+    background: #fffdf8;
+}
+
+body:has(header.top) .addr:hover {
+    border-color: var(--gold);
+}
+
+/* Botones del proceso de compra */
+body:has(header.top) .btn {
+    border-radius: 8px;
+    min-height: 44px;
+    font-size: 13px;
+}
+
+body:has(header.top) .btn-red {
+    background: var(--red);
+    box-shadow: 0 4px 12px rgba(193, 0, 0, .16);
+}
+
+body:has(header.top) .btn-red:hover {
+    background: var(--red-dark);
+}
+
+body:has(header.top) .btn-line {
+    border-color: #d9d5cd;
+    background: #fff;
+}
+
+/* Confirmación */
+body:has(header.top) .okc {
+    padding: 42px 30px;
+}
+
+body:has(header.top) .okc .big {
+    background: var(--green);
+}
+
+/* Carrito vacío */
+body:has(header.top) .empty {
+    border-radius: 14px;
+    background: #fff;
+}
+
+body:has(header.top) .empty > i {
+    color: var(--gold);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    body:has(header.top) #view > .card,
+    body:has(header.top) #side.side {
+        border-radius: 11px;
+    }
+
+    body:has(header.top) .steps div {
+        background: rgba(255, 255, 255, .035);
+    }
+
+    body:has(header.top) .okc {
+        padding: 25px 15px;
+    }
+}
