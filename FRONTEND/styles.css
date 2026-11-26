@@ -1278,3 +1278,387 @@ footer {
     font-size: 12px;
     padding: 30px 20px;
 }
+
+/* ==========================================
+   TECHFORGE - DISEÑO PREMIUM DEL CHECKOUT
+   ========================================== */
+
+:root {
+    --tf-red: #c10000;
+    --tf-red-dark: #970000;
+    --tf-gold: #c5a059;
+    --tf-dark: #111111;
+    --tf-gray: #f4f4f5;
+    --tf-border: #e5e5e7;
+    --tf-text: #202020;
+    --tf-muted: #777777;
+}
+
+/* Fondo general */
+body {
+    background: var(--tf-gray);
+    color: var(--tf-text);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* Encabezado */
+.top {
+    background: linear-gradient(120deg, #101010, #202020);
+    border-bottom: 3px solid var(--tf-gold);
+    box-shadow: 0 4px 15px rgba(0,0,0,.12);
+}
+
+.top-in {
+    max-width: 1200px;
+    padding: 18px 24px;
+}
+
+.top .brand {
+    font-family: Georgia, serif;
+    font-size: 23px;
+    letter-spacing: 2px;
+}
+
+.top .brand span {
+    color: var(--tf-gold);
+}
+
+/* Pestañas / pasos del proceso */
+.steps {
+    gap: 10px;
+}
+
+.steps div {
+    padding: 9px 14px;
+    border: 1px solid #3a3a3a;
+    border-radius: 30px;
+    background: #191919;
+    color: #999;
+    transition: all .25s ease;
+}
+
+.steps div b {
+    background: #383838;
+    color: #ddd;
+    width: 25px;
+    height: 25px;
+}
+
+.steps div.on {
+    background: #29231a;
+    border-color: var(--tf-gold);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(197,160,89,.12);
+}
+
+.steps div.on b {
+    background: var(--tf-gold);
+    color: #111;
+}
+
+.steps div.done {
+    color: var(--tf-gold);
+    border-color: #665333;
+}
+
+.steps div.done b {
+    background: var(--tf-gold);
+    color: #111;
+}
+
+/* Contenedor principal */
+.wrap {
+    max-width: 1200px;
+    margin: 35px auto;
+    gap: 26px;
+}
+
+/* Tarjetas generales */
+.card {
+    background: #fff;
+    border: 1px solid var(--tf-border);
+    border-radius: 14px;
+    padding: 26px;
+    box-shadow: 0 5px 20px rgba(0,0,0,.045);
+}
+
+/* Títulos */
+h2, h3 {
+    color: var(--tf-dark);
+}
+
+h2 {
+    font-size: 25px;
+    padding-bottom: 13px;
+    border-bottom: 1px solid var(--tf-border);
+}
+
+h3 {
+    font-size: 19px;
+}
+
+/* Productos del carrito */
+.item {
+    padding: 20px 0;
+    gap: 20px;
+}
+
+.item .im {
+    width: 105px;
+    height: 105px;
+    background: #f7f7f7;
+    border: 1px solid var(--tf-border);
+    border-radius: 12px;
+}
+
+.item h4 {
+    font-size: 15px;
+    color: #202020;
+}
+
+.item .meta {
+    color: #888;
+}
+
+.item .unit {
+    color: #777;
+}
+
+.item .sub {
+    color: var(--tf-red);
+}
+
+/* Controles de cantidad */
+.qty {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.qty button {
+    background: #f4f4f4;
+    color: #222;
+    transition: .2s;
+}
+
+.qty button:hover {
+    background: var(--tf-gold);
+    color: #111;
+}
+
+/* Eliminar producto */
+.del {
+    color: var(--tf-red);
+    font-weight: 600;
+}
+
+/* Resumen del pedido */
+.side {
+    border-radius: 14px;
+    box-shadow: 0 5px 20px rgba(0,0,0,.06);
+}
+
+.side h2,
+.side h3 {
+    border-bottom: 1px solid var(--tf-border);
+    padding-bottom: 12px;
+}
+
+.srow {
+    padding: 10px 0;
+    font-size: 14px;
+}
+
+.srow.tot {
+    color: var(--tf-red);
+    font-size: 21px;
+    border-top: 2px solid var(--tf-border);
+    margin-top: 12px;
+}
+
+/* Botones */
+.btn {
+    border-radius: 8px;
+    padding: 13px 20px;
+    transition: all .25s ease;
+    font-size: 14px;
+}
+
+.btn-red {
+    background: var(--tf-red);
+    color: white;
+    box-shadow: 0 3px 9px rgba(193,0,0,.15);
+}
+
+.btn-red:hover {
+    background: var(--tf-red-dark);
+    transform: translateY(-2px);
+}
+
+.btn-line {
+    background: white;
+    border: 1px solid #ccc;
+    color: #333;
+}
+
+.btn-line:hover {
+    background: #f6f6f6;
+    border-color: var(--tf-gold);
+}
+
+/* Distribución de botones */
+.actions {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid var(--tf-border);
+}
+
+/* Formularios */
+label.f {
+    color: #333;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+input.i {
+    border: 1px solid #d8d8d8;
+    border-radius: 8px;
+    background: #fff;
+    padding: 13px;
+    transition: border .2s, box-shadow .2s;
+}
+
+input.i:focus {
+    border-color: var(--tf-gold);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(197,160,89,.15);
+}
+
+/* Direcciones */
+.addr {
+    background: #fff;
+    border: 1px solid var(--tf-border);
+    border-radius: 10px;
+    padding: 17px;
+    transition: .2s;
+}
+
+.addr:hover {
+    border-color: var(--tf-gold);
+    background: #fffdf9;
+}
+
+.addr.sel {
+    border: 2px solid var(--tf-red);
+    background: #fffafa;
+}
+
+/* Formularios adicionales */
+.formbox {
+    background: #fafafa;
+    border: 1px dashed #c9c9c9;
+    border-radius: 12px;
+    padding: 22px;
+}
+
+/* Tarjeta de pago */
+.cc {
+    border: 1px solid #444;
+    background: linear-gradient(135deg, #151515, #292929 65%, #650000);
+    border-radius: 16px;
+    padding: 25px;
+}
+
+.cc .br {
+    color: var(--tf-gold);
+}
+
+/* Avisos */
+.hint {
+    background: #fffaf0;
+    border: 1px solid #e6d1a6;
+    border-radius: 9px;
+    color: #765b29;
+}
+
+.banner {
+    border-radius: 9px;
+    background: #fff1f1;
+    border: 1px solid #e8baba;
+    color: var(--tf-red-dark);
+}
+
+/* Pantalla de confirmación */
+.okc .big {
+    background: #1a8f3c;
+    box-shadow: 0 4px 15px rgba(26,143,60,.18);
+}
+
+.okc .oid {
+    background: #171717;
+    color: var(--tf-gold);
+    padding: 9px 18px;
+    border-radius: 8px;
+}
+
+/* Estado vacío */
+.empty {
+    padding: 65px 25px;
+}
+
+.empty i {
+    color: var(--tf-gold);
+}
+
+/* Pie de página */
+footer {
+    background: #111;
+    color: #aaa;
+    border-top: 3px solid var(--tf-gold);
+    padding: 28px 20px;
+}
+
+/* Adaptación a móviles */
+@media(max-width: 860px) {
+    .wrap {
+        margin: 20px auto;
+        padding: 0 14px;
+        gap: 18px;
+    }
+
+    .card {
+        padding: 19px;
+    }
+
+    .top-in {
+        justify-content: center;
+    }
+
+    .steps {
+        justify-content: center;
+    }
+}
+
+@media(max-width: 560px) {
+    .steps div {
+        padding: 7px 9px;
+        font-size: 11px;
+    }
+
+    .steps div b {
+        width: 22px;
+        height: 22px;
+    }
+
+    .item {
+        gap: 12px;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+
+    .actions .btn {
+        width: 100%;
+    }
+}
