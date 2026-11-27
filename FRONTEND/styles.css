@@ -1662,3 +1662,101 @@ footer {
         width: 100%;
     }
 }
+
+/* PERFIL DE USUARIO */
+.profile-area {
+    position: relative;
+    z-index: 1000;
+}
+
+.profile-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 15px;
+    background: #111;
+    color: white;
+    border: 1px solid #c5a059;
+    border-radius: 5px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.profile-button:hover {
+    background: #292929;
+}
+
+.profile-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 235px;
+    padding: 16px;
+    background: white;
+    border: 1px solid #e5e5e7;
+    border-radius: 7px;
+    box-shadow: 0 5px 20px #0002;
+    z-index: 2000;
+}
+
+.profile-menu.active {
+    display: block;
+}
+
+.profile-menu p {
+    margin-bottom: 12px;
+    font-weight: bold;
+    color: #111;
+}
+
+.profile-menu a,
+.profile-menu button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-top: 7px;
+    text-align: left;
+    text-decoration: none;
+    color: #222;
+    background: #f4f4f5;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.profile-menu a:hover,
+.profile-menu button:hover {
+    background: #e5e5e7;
+}
+
+.profile-menu .logout-option {
+    color: #c10000;
+}
+
+@media (max-width: 650px) {
+    .profile-button {
+        padding: 10px;
+    }
+}
+/* MENÚ DE PERFIL */
+.profile-area {
+    position: relative;
+    z-index: 9999;
+}
+
+.profile-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: auto;
+    width: 250px;
+    max-width: calc(100vw - 20px);
+    z-index: 99999;
+}
+
+.profile-menu.active {
+    display: block;
+}

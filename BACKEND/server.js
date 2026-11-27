@@ -173,6 +173,45 @@ function requireAuth(req, res, next) {
     }
 }
 
+// Middleware exclusivo para clientes
+async function requireCliente(req, res, next) {
+    try {
+        if (req.auth.tipo !== 'cliente') {
+            return res.status(403).json({
+                error: 'Esta función es exclusiva para clientes.'
+            });
+        }
+
+        if (!ObjectId.isValid(req.auth.sub)) {
+            return res.status(401).json({
+                error: 'Sesión de cliente no válida.'
+            });
+        }
+
+        const usuario = await db.collection('usuarios').findOne({
+            _id: new ObjectId(req.auth.sub),
+            email: req.auth.email
+        });
+
+        if (!usuario) {
+            clearSessionCookie(res);
+
+            return res.status(401).json({
+                error: 'La cuenta de cliente ya no existe.'
+            });
+        }
+
+        req.usuario = usuario;
+        next();
+
+    } catch (error) {
+        console.error('Error al validar cliente:', error);
+
+        return res.status(500).json({
+            error: 'No se pudo validar la cuenta.'
+        });
+    }
+}
 // Middleware exclusivo para administradores
 async function requireAdmin(req, res, next) {
     try {
@@ -414,20 +453,48 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', requireAuth, async (req, res) => {
     try {
-        const usuario = await db.collection('usuarios').findOne(
-            {
-                _id: new ObjectId(req.auth.sub)
-            },
-            {
+        if (!ObjectId.isValid(req.auth.sub)) {
+            clearSessionCookie(res);
+
+            return res.status(401).json({
+                error: 'Sesión no válida.'
+            });
+        }
+
+        let cuenta;
+        let tipo;
+
+        if (req.auth.tipo === 'admin') {
+            tipo = 'admin';
+
+            cuenta = await db.collection('administradores').findOne({
+                _id: new ObjectId(req.auth.sub),
+                email: req.auth.email
+            });
+
+        } else if (req.auth.tipo === 'cliente') {
+            tipo = 'cliente';
+
+            cuenta = await db.collection('usuarios').findOne({
+                _id: new ObjectId(req.auth.sub),
+                email: req.auth.email
+            }, {
                 projection: {
                     nombre: 1,
                     email: 1,
                     direccion: 1
                 }
-            }
-        );
+            });
 
-        if (!usuario) {
+        } else {
+            clearSessionCookie(res);
+
+            return res.status(401).json({
+                error: 'Tipo de sesión no válido.'
+            });
+        }
+
+        if (!cuenta) {
             clearSessionCookie(res);
 
             return res.status(401).json({
@@ -437,14 +504,19 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
 
         return res.json({
             autenticado: true,
-            usuario
+            tipo,
+            usuario: {
+                nombre: cuenta.nombre,
+                email: cuenta.email,
+                direccion: cuenta.direccion || null
+            }
         });
 
     } catch (error) {
         console.error('Error al consultar sesión:', error);
 
-        return res.status(401).json({
-            error: 'Sesión no válida.'
+        return res.status(500).json({
+            error: 'No se pudo consultar la sesión.'
         });
     }
 });
@@ -453,7 +525,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
    DIRECCIONES: CONSULTAR
    ========================================================== */
 
-app.get('/api/auth/direccion', requireAuth, async (req, res) => {
+app.get('/api/auth/direccion', requireAuth, requireCliente, async (req, res) => {
     try {
         const usuario = await db.collection('usuarios').findOne(
             {
@@ -489,7 +561,7 @@ app.get('/api/auth/direccion', requireAuth, async (req, res) => {
    DIRECCIONES: GUARDAR O ACTUALIZAR
    ========================================================== */
 
-app.put('/api/auth/direccion', requireAuth, async (req, res) => {
+app.put('/api/auth/direccion', requireAuth, requireCliente, async (req, res) => {
     try {
         const direccion = req.body.direccion;
 
@@ -755,7 +827,7 @@ app.get('/', (req, res) => {
    ========================================================== */
 
 // Crear un pedido y guardarlo en MongoDB
-app.post('/api/pedidos', requireAuth, async (req, res) => {
+app.post('/api/pedidos', requireAuth, requireCliente, async (req, res) => {
     try {
         const { items, direccion, pago } = req.body;
 
@@ -876,7 +948,8 @@ app.post('/api/pedidos', requireAuth, async (req, res) => {
             subtotal,
             envio,
             total,
-            estado: 'Pagado (simulado)'
+            estado: 'Pagado (simulado)',
+            estadoPedido: 'Pendiente'
         };
 
         // Guardar primero en MongoDB
@@ -927,7 +1000,7 @@ app.post('/api/pedidos', requireAuth, async (req, res) => {
 });
 
 // Consultar los pedidos del usuario que inició sesión
-app.get('/api/pedidos/mis-pedidos', requireAuth, async (req, res) => {
+app.get('/api/pedidos/mis-pedidos', requireAuth, requireCliente, async (req, res) => {
     try {
         const pedidos = await db.collection('pedidos')
             .find({ usuarioId: req.auth.sub })
@@ -946,41 +1019,135 @@ app.get('/api/pedidos/mis-pedidos', requireAuth, async (req, res) => {
 });
 
 
-// Consultar todos los pedidos (solo administradores)
 
-// Consultar todos los pedidos (solo administradores)
+/* ==========================================================
+   ADMINISTRACIÓN DE PEDIDOS
+   ========================================================== */
+
+// Consultar pedidos activos: Pendientes y En proceso
 app.get('/api/admin/pedidos', requireAuth, requireAdmin, async (req, res) => {
     try {
         const pedidos = await db.collection('pedidos')
-            .find(
-                {},
-                {
-                    projection: {
-                        numero: 1,
-                        usuarioId: 1,
-                        fecha: 1,
-                        items: 1,
-                        'direccion.nombre': 1,
-                        subtotal: 1,
-                        envio: 1,
-                        total: 1,
-                        estado: 1
-                    }
-                }
-            )
+            .find({
+                $or: [
+                    { estadoPedido: { $exists: false } },
+                    { estadoPedido: null },
+                    { estadoPedido: { $ne: 'Entregado' } }
+                ]
+            })
+            .project({
+                numero: 1,
+                usuarioId: 1,
+                fecha: 1,
+                items: 1,
+                'direccion.nombre': 1,
+                subtotal: 1,
+                envio: 1,
+                total: 1,
+                estado: 1,
+                estadoPedido: 1
+            })
             .sort({ fecha: -1 })
             .toArray();
 
         return res.json(pedidos);
 
     } catch (error) {
-        console.error('Error al consultar pedidos de administración:', error);
+        console.error('Error al consultar pedidos activos:', error);
 
         return res.status(500).json({
             error: 'No se pudieron consultar los pedidos.'
         });
     }
 });
+
+// Consultar historial de pedidos entregados
+app.get('/api/admin/pedidos/entregados', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const pedidos = await db.collection('pedidos')
+            .find({
+                estadoPedido: 'Entregado'
+            })
+            .project({
+                numero: 1,
+                usuarioId: 1,
+                fecha: 1,
+                items: 1,
+                'direccion.nombre': 1,
+                subtotal: 1,
+                envio: 1,
+                total: 1,
+                estado: 1,
+                estadoPedido: 1
+            })
+            .sort({ fecha: -1 })
+            .toArray();
+
+        return res.json(pedidos);
+
+    } catch (error) {
+        console.error('Error al consultar pedidos entregados:', error);
+
+        return res.status(500).json({
+            error: 'No se pudo consultar el historial de entregados.'
+        });
+    }
+});
+
+// Modificar estado de un pedido
+app.patch('/api/admin/pedidos/:id/estado', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const estadoPedido = String(req.body.estadoPedido || '').trim();
+
+        const estadosPermitidos = [
+            'Pendiente',
+            'En proceso',
+            'Entregado'
+        ];
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).json({
+                error: 'Identificador de pedido no válido.'
+            });
+        }
+
+        if (!estadosPermitidos.includes(estadoPedido)) {
+            return res.status(400).json({
+                error: 'El estado seleccionado no es válido.'
+            });
+        }
+
+        const resultado = await db.collection('pedidos').updateOne(
+            { _id: new ObjectId(id) },
+            {
+                $set: {
+                    estadoPedido,
+                    actualizadoEn: new Date()
+                }
+            }
+        );
+
+        if (!resultado.matchedCount) {
+            return res.status(404).json({
+                error: 'No se encontró el pedido.'
+            });
+        }
+
+        return res.json({
+            mensaje: 'Estado del pedido actualizado correctamente.',
+            estadoPedido
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar estado del pedido:', error);
+
+        return res.status(500).json({
+            error: 'No se pudo actualizar el estado del pedido.'
+        });
+    }
+});
+
 
 
 

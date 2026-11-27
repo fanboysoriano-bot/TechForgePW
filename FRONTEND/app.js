@@ -306,8 +306,11 @@ function toggleCart() {
 
 // Agregar productos al carrito
 function add(sku, n = 1) {
-    const product = P.find(p => p.sku === sku);
+    if (document.body.classList.contains('admin-mode')) {
+        return;
+    }
 
+    const product = P.find(p => p.sku === sku);
     if (!product) return;
 
     const stock = Number(product.stock);

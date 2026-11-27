@@ -90,8 +90,9 @@ body {
     transition: .2s;
 }
 
-.nav-link span {
+.nav-link > span:first-child {
     width: 20px;
+    flex-shrink: 0;
     text-align: center;
     font-size: 18px;
 }
@@ -113,7 +114,7 @@ body {
     border-top: 1px solid #292929;
 }
 
-/* CONTENIDO */
+/* CONTENIDO PRINCIPAL */
 
 .main-content {
     margin-left: 250px;
@@ -182,6 +183,10 @@ body {
     padding: 32px 35px;
 }
 
+.dashboard-view[hidden] {
+    display: none !important;
+}
+
 .section-heading {
     display: flex;
     align-items: center;
@@ -200,13 +205,13 @@ body {
     font-size: 12px;
 }
 
-/* TARJETAS DE ESTADÍSTICAS */
+/* ESTADÍSTICAS */
 
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20px;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
 }
 
 .stat-card {
@@ -263,20 +268,35 @@ body {
     color: var(--text);
 }
 
-/* PEDIDOS */
+/* INFORMACIÓN DEL RESUMEN */
 
-.orders-section {
+.summary-info {
     background: var(--white);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 25px;
+    border-left: 4px solid var(--gold);
+    border-radius: 9px;
+    padding: 23px;
     box-shadow: 0 4px 15px rgba(0,0,0,.035);
 }
+
+.summary-info h3 {
+    font: 400 18px Georgia, serif;
+    margin-bottom: 9px;
+}
+
+.summary-info p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+/* PEDIDOS COMPLETADOS */
 
 .refresh-btn {
     padding: 10px 16px;
     background: var(--dark);
     color: #fff;
+    border: none;
     border-radius: 7px;
     font-size: 12px;
     font-weight: bold;
@@ -299,9 +319,40 @@ body {
     margin-bottom: 12px;
 }
 
+.completed-summary {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 18px 22px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.completed-summary span,
+.completed-summary strong {
+    display: block;
+}
+
+.completed-summary span {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
+.completed-summary strong {
+    color: var(--text);
+    font-size: 25px;
+}
+
+/* TABLA */
+
 .table-container {
     width: 100%;
     overflow-x: auto;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
 }
 
 table {
@@ -318,7 +369,7 @@ thead {
 th {
     color: #555;
     text-align: left;
-    padding: 14px 12px;
+    padding: 15px 12px;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: .5px;
@@ -334,6 +385,10 @@ tbody tr:hover {
     background: #fffdf9;
 }
 
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
 .order-number {
     font-weight: bold;
     color: #202020;
@@ -341,7 +396,7 @@ tbody tr:hover {
 
 .order-products {
     color: #666;
-    max-width: 230px;
+    max-width: 260px;
     line-height: 1.5;
 }
 
@@ -353,26 +408,16 @@ tbody tr:hover {
 
 .status {
     display: inline-block;
-    padding: 5px 10px;
+    padding: 6px 11px;
     border-radius: 20px;
     font-size: 10px;
     font-weight: bold;
     white-space: nowrap;
 }
 
-.status.paid {
+.status.delivered {
     background: #eaf7ed;
     color: #1a8f3c;
-}
-
-.status.pending {
-    background: #fff5e4;
-    color: #987025;
-}
-
-.status.other {
-    background: #eee;
-    color: #555;
 }
 
 .loading,
@@ -424,7 +469,7 @@ footer {
 
     .brand small,
     .nav-title,
-    .nav-link:not(.active) {
+    .nav-link .nav-text {
         display: none;
     }
 
@@ -437,11 +482,7 @@ footer {
         padding: 12px 5px;
     }
 
-    .nav-link.active {
-        font-size: 0;
-    }
-
-    .nav-link span {
+    .nav-link > span:first-child {
         font-size: 19px;
     }
 
@@ -450,8 +491,7 @@ footer {
     }
 
     .sidebar-bottom .nav-link {
-        display: flex;
-        font-size: 0;
+        justify-content: center;
     }
 
     .main-content {
@@ -471,10 +511,6 @@ footer {
     .dashboard-content {
         padding: 22px 14px;
     }
-
-    .orders-section {
-        padding: 15px;
-    }
 }
 
 @media (max-width: 430px) {
@@ -486,5 +522,60 @@ footer {
         align-items: flex-start;
         flex-direction: column;
     }
+
+    .refresh-btn {
+        width: 100%;
+    }
 }
 
+/* GESTIÓN DE PEDIDOS EN RESUMEN */
+
+.orders-section {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,.035);
+    margin-top: 25px;
+}
+
+.order-status-select {
+    min-width: 125px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--white);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.order-status-select:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.order-status-select:disabled {
+    opacity: .6;
+    cursor: wait;
+}
+
+.status.delivered {
+    background: #eaf7ed;
+    color: #1a8f3c;
+}
+
+.dashboard-view[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+    .orders-section {
+        padding: 15px;
+    }
+
+    .order-status-select {
+        min-width: 115px;
+    }
+}

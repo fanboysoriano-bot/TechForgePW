@@ -11,7 +11,6 @@
 
     <div class="admin-layout">
 
-        <!-- BARRA LATERAL -->
         <aside class="sidebar">
 
             <div class="brand">
@@ -22,42 +21,32 @@
             <nav class="sidebar-nav">
                 <p class="nav-title">MENÚ PRINCIPAL</p>
 
-                <a href="dashboard.html" class="nav-link active">
-                    <span>▦</span> Resumen
+                <a href="#resumen" class="nav-link active" data-view="resumen">
+                    <span>▦</span>
+                    <span class="nav-text">Resumen</span>
                 </a>
 
-                <a href="#pedidos" class="nav-link">
-                    <span>▤</span> Pedidos
-                </a>
-
-                <a href="#productos" class="nav-link">
-                    <span>▣</span> Productos
-                </a>
-
-                <a href="#categorias" class="nav-link">
-                    <span>▧</span> Categorías
-                </a>
-
-                <a href="#usuarios" class="nav-link">
-                    <span>♙</span> Usuarios
+                <a href="#completados" class="nav-link" data-view="completados">
+                    <span>▤</span>
+                    <span class="nav-text">Pedidos completados</span>
                 </a>
             </nav>
 
             <div class="sidebar-bottom">
                 <a href="../index.html" class="nav-link">
-                    <span>↗</span> Ver tienda
+                    <span>↗</span>
+                    <span class="nav-text">Ver tienda</span>
                 </a>
             </div>
 
         </aside>
 
-        <!-- CONTENIDO PRINCIPAL -->
         <main class="main-content">
 
             <header class="topbar">
                 <div>
                     <h1>Panel administrativo</h1>
-                    <p>Resumen general de TechForge</p>
+                    <p>Administración de TechForge</p>
                 </div>
 
                 <div class="admin-profile">
@@ -71,57 +60,105 @@
 
             <section class="dashboard-content">
 
-                <!-- ESTADÍSTICAS -->
-                <div class="section-heading">
-                    <div>
-                        <h2>Resumen</h2>
-                        <p>Indicadores generales de la tienda</p>
-                    </div>
-                </div>
-
-                <div class="stats-grid">
-
-                    <article class="stat-card">
-                        <div class="stat-icon orders-icon">▤</div>
-                        <div>
-                            <p>Total de pedidos</p>
-                            <h3 id="totalPedidos">0</h3>
-                        </div>
-                    </article>
-
-                    <article class="stat-card">
-                        <div class="stat-icon paid-icon">✓</div>
-                        <div>
-                            <p>Pedidos pagados</p>
-                            <h3 id="pedidosPagados">0</h3>
-                        </div>
-                    </article>
-
-                    <article class="stat-card">
-                        <div class="stat-icon sales-icon">$</div>
-                        <div>
-                            <p>Ventas acumuladas</p>
-                            <h3 id="ventasTotales">$0.00</h3>
-                        </div>
-                    </article>
-
-                </div>
-
-                <!-- PEDIDOS -->
-                <section class="orders-section" id="pedidos">
+                <!-- RESUMEN Y PEDIDOS ACTIVOS -->
+                <section id="vistaResumen" class="dashboard-view">
 
                     <div class="section-heading">
                         <div>
-                            <h2>Pedidos recientes</h2>
-                            <p>Pedidos registrados en TechForge</p>
+                            <h2>Resumen</h2>
+                            <p>Indicadores generales de la tienda</p>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+
+                        <article class="stat-card">
+                            <div class="stat-icon orders-icon">▤</div>
+                            <div>
+                                <p>Total de pedidos</p>
+                                <h3 id="totalPedidos">0</h3>
+                            </div>
+                        </article>
+
+                        <article class="stat-card">
+                            <div class="stat-icon paid-icon">✓</div>
+                            <div>
+                                <p>Pedidos pagados</p>
+                                <h3 id="pedidosPagados">0</h3>
+                            </div>
+                        </article>
+
+                        <article class="stat-card">
+                            <div class="stat-icon sales-icon">$</div>
+                            <div>
+                                <p>Ventas acumuladas</p>
+                                <h3 id="ventasTotales">$0.00</h3>
+                            </div>
+                        </article>
+
+                    </div>
+
+                    <section class="orders-section">
+
+                        <div class="section-heading">
+                            <div>
+                                <h2>Gestión de pedidos</h2>
+                                <p>Pedidos pendientes y en proceso</p>
+                            </div>
+
+                            <button id="btnActualizar" class="refresh-btn">
+                                ↻ Actualizar
+                            </button>
                         </div>
 
-                        <button id="btnActualizar" class="refresh-btn">
+                        <div id="mensaje" class="message"></div>
+
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Número</th>
+                                        <th>Fecha</th>
+                                        <th>Productos</th>
+                                        <th>Total</th>
+                                        <th>Estado del pedido</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="tablaPedidos">
+                                    <tr>
+                                        <td colspan="5" class="loading">
+                                            Cargando pedidos...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </section>
+
+                </section>
+
+                <!-- PEDIDOS COMPLETADOS -->
+                <section id="vistaCompletados" class="dashboard-view" hidden>
+
+                    <div class="section-heading">
+                        <div>
+                            <h2>Pedidos completados</h2>
+                            <p>Historial de todos los pedidos entregados</p>
+                        </div>
+
+                        <button id="btnActualizarHistorial" class="refresh-btn">
                             ↻ Actualizar
                         </button>
                     </div>
 
-                    <div id="mensaje" class="message"></div>
+                    <div class="completed-summary">
+                        <div>
+                            <span>Pedidos entregados</span>
+                            <strong id="totalEntregados">0</strong>
+                        </div>
+                    </div>
 
                     <div class="table-container">
                         <table>
@@ -135,10 +172,10 @@
                                 </tr>
                             </thead>
 
-                            <tbody id="tablaPedidos">
+                            <tbody id="tablaEntregados">
                                 <tr>
                                     <td colspan="5" class="loading">
-                                        Cargando pedidos...
+                                        Cargando historial...
                                     </td>
                                 </tr>
                             </tbody>
@@ -160,4 +197,3 @@
     <script src="dashboard.js"></script>
 </body>
 </html>
-
