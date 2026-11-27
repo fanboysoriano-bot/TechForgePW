@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | TechForge</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+    <div class="admin-layout">
+
+        <!-- BARRA LATERAL -->
+        <aside class="sidebar">
+
+            <div class="brand">
+                TECH<span>FORGE</span>
+                <small>ADMINISTRACIÓN</small>
+            </div>
+
+            <nav class="sidebar-nav">
+                <p class="nav-title">MENÚ PRINCIPAL</p>
+
+                <a href="dashboard.html" class="nav-link active">
+                    <span>▦</span> Resumen
+                </a>
+
+                <a href="#pedidos" class="nav-link">
+                    <span>▤</span> Pedidos
+                </a>
+
+                <a href="#productos" class="nav-link">
+                    <span>▣</span> Productos
+                </a>
+
+                <a href="#categorias" class="nav-link">
+                    <span>▧</span> Categorías
+                </a>
+
+                <a href="#usuarios" class="nav-link">
+                    <span>♙</span> Usuarios
+                </a>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <a href="../index.html" class="nav-link">
+                    <span>↗</span> Ver tienda
+                </a>
+            </div>
+
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="main-content">
+
+            <header class="topbar">
+                <div>
+                    <h1>Panel administrativo</h1>
+                    <p>Resumen general de TechForge</p>
+                </div>
+
+                <div class="admin-profile">
+                    <div class="profile-icon">A</div>
+                    <div>
+                        <strong>Administrador</strong>
+                        <small>TechForge</small>
+                    </div>
+                </div>
+            </header>
+
+            <section class="dashboard-content">
+
+                <!-- ESTADÍSTICAS -->
+                <div class="section-heading">
+                    <div>
+                        <h2>Resumen</h2>
+                        <p>Indicadores generales de la tienda</p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+
+                    <article class="stat-card">
+                        <div class="stat-icon orders-icon">▤</div>
+                        <div>
+                            <p>Total de pedidos</p>
+                            <h3 id="totalPedidos">0</h3>
+                        </div>
+                    </article>
+
+                    <article class="stat-card">
+                        <div class="stat-icon paid-icon">✓</div>
+                        <div>
+                            <p>Pedidos pagados</p>
+                            <h3 id="pedidosPagados">0</h3>
+                        </div>
+                    </article>
+
+                    <article class="stat-card">
+                        <div class="stat-icon sales-icon">$</div>
+                        <div>
+                            <p>Ventas acumuladas</p>
+                            <h3 id="ventasTotales">$0.00</h3>
+                        </div>
+                    </article>
+
+                </div>
+
+                <!-- PEDIDOS -->
+                <section class="orders-section" id="pedidos">
+
+                    <div class="section-heading">
+                        <div>
+                            <h2>Pedidos recientes</h2>
+                            <p>Pedidos registrados en TechForge</p>
+                        </div>
+
+                        <button id="btnActualizar" class="refresh-btn">
+                            ↻ Actualizar
+                        </button>
+                    </div>
+
+                    <div id="mensaje" class="message"></div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Fecha</th>
+                                    <th>Productos</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tablaPedidos">
+                                <tr>
+                                    <td colspan="5" class="loading">
+                                        Cargando pedidos...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </section>
+
+            </section>
+
+            <footer>
+                TechForge · Panel administrativo
+            </footer>
+
+        </main>
+
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
+

@@ -50,7 +50,7 @@ let step = 1;
 let addrId = addrs[0]?.id || null;
 let showForm = addrs.length === 0;
 let loggedIn = false;
-let lastOrder = null;
+let procesandoPago = false;
 
 /* ==========================================================
    FUNCIONES AUXILIARES DEL CARRITO
@@ -731,7 +731,10 @@ function validatePay() {
 /* ==========================================================
    PROCESAR PAGO SIMULADO
    ========================================================== */
-function pay() {
+
+async function pay() {
+    if (procesandoPago) return;
+
     $('payerr').innerHTML = '';
 
     if (!validatePay()) return;
@@ -748,6 +751,11 @@ function pay() {
     $('c-num').value = '';
     $('c-cvv').value = '';
 
+    procesandoPago = true;
+
+    const boton = document.querySelector('[data-a="pay"]');
+    if (boton) boton.disabled = true;
+
     $('proctxt').textContent = 'Procesando pago…';
     $('proc').classList.add('on');
 
@@ -755,10 +763,11 @@ function pay() {
         $('proctxt').textContent = 'Verificando con el banco…';
     }, 1100);
 
-    setTimeout(() => {
+    setTimeout(async () => {
         $('proc').classList.remove('on');
 
         if (rechazada) {
+            procesandoPago = false;
             render();
 
             $('payerr').innerHTML = `
@@ -772,58 +781,79 @@ function pay() {
             return;
         }
 
-        createOrder(info);
+        await createOrder(info);
+
     }, 2400);
 }
+
 
 /* ==========================================================
    CREAR PEDIDO
    ========================================================== */
-function createOrder(pago) {
-    const t = totals();
+
+async function createOrder(pago) {
     const dir = addrs.find(a => a.id === addrId);
-    const hoy = new Date();
 
-    lastOrder = {
-        id: 'TF-' +
-            hoy.toISOString().slice(0, 10).replace(/-/g, '') +
-            '-' +
-            String(Math.floor(Math.random() * 9000) + 1000),
+    try {
+        if (!dir) {
+            throw new Error('Selecciona una dirección de envío.');
+        }
 
-        fecha: hoy.toISOString(),
+        const res = await fetch('/api/pedidos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                items: items().map(({ p, n }) => ({
+                    sku: p.sku,
+                    cantidad: n
+                })),
+                direccion: dir,
+                pago
+            })
+        });
 
-        items: items().map(({ p, n }) => ({
-            sku: p.sku,
-            nombre: p.nombre,
-            precio: p.precio,
-            cantidad: n
-        })),
+        const data = await res.json();
 
-        direccion: dir,
-        pago,
+        if (!res.ok) {
+            throw new Error(data.error || 'No se pudo registrar el pedido.');
+        }
 
-        subtotal: t.subtotal,
-        envio: t.envio,
-        total: t.total,
+        // Recuperar el pedido guardado en MongoDB
+        lastOrder = data.pedido;
 
-        estado: 'Pagado (simulado)'
-    };
+        // Vaciar el carrito únicamente después de guardar el pedido
+        cart = {};
+        persistCart();
 
-    const hist = load(LS_ORD, []);
-    hist.push(lastOrder);
+        // Mostrar confirmación
+        step = 4;
+        render();
 
-    save(LS_ORD, hist);
+        console.log('Pedido registrado en MongoDB:', lastOrder.numero);
+        console.log('Estado del evento Kafka:', data.eventoKafka);
 
-    cart = {};
-    persistCart();
+    } catch (error) {
+        console.error('Error al registrar el pedido:', error);
 
-    step = 4;
-    render();
+        $('payerr').innerHTML = `
+            <div class="banner">
+                <i class="fa-solid fa-circle-xmark"></i>
+                ${esc(error.message)}
+            </div>
+        `;
+
+    } finally {
+        procesandoPago = false;
+    }
 }
+
 
 /* ==========================================================
    PASO 4: CONFIRMACIÓN
    ========================================================== */
+
 function confirmHTML() {
     const o = lastOrder;
     const d = o.direccion;
@@ -840,7 +870,7 @@ function confirmHTML() {
                 Tu pedido fue registrado correctamente (simulación).
             </p>
 
-            <div class="oid">${esc(o.id)}</div>
+            <div class="oid">${esc(o.numero)}</div>
 
             <div class="det">
                 <h3>Productos</h3>
@@ -885,6 +915,7 @@ function confirmHTML() {
         </div>
     `;
 }
+
 
 /* ==========================================================
    RESUMEN LATERAL

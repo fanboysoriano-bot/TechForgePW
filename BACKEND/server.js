@@ -1,3 +1,4 @@
+
 const dns = require('dns');
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
@@ -7,45 +8,127 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { Kafka } = require('kafkajs');
 
 require('dotenv').config();
 
-cloudinary.config({ secure: true });
+/* ==========================================================
+   CONFIGURACIÓN GENERAL
+   ========================================================== */
 
+// DNS de Google opcional
 if (process.env.USE_GOOGLE_DNS === 'true') {
     dns.setServers(['8.8.8.8', '8.8.4.4']);
+    console.log('DNS de Google habilitado.');
 }
 
+// Cloudinary
+cloudinary.config({ secure: true });
+
+// Express
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Variables de entorno
 const MONGO_URI = process.env.MONGO_URI;
 const AUTH_SECRET = process.env.AUTH_JWT_SECRET;
+
+// Rutas
 const frontendPath = path.join(__dirname, '..', 'FRONTEND');
 
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: '1mb' }));
-app.use(express.static(frontendPath));
-
-let db;
-let client;
-let redis;
-
-const CACHE_TTL = 300;
+// Configuración de sesión
 const COOKIE_NAME = 'tf_session';
 const SESSION_DAYS = 7;
 
-function getCookie(req, name) {
-    const header = req.headers.cookie || '';
-    const part = header.split(';').map(x => x.trim())
-        .find(x => x.startsWith(name + '='));
-    return part ? decodeURIComponent(part.slice(name.length + 1)) : null;
+// Caché
+const CACHE_TTL = 300;
+
+// Middlewares
+app.use(cors({
+    origin: true,
+    credentials: true
+}));
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static(frontendPath));
+
+/* ==========================================================
+   CONEXIONES Y VARIABLES GLOBALES
+   ========================================================== */
+
+let db = null;
+let client = null;
+let redis = null;
+let kafkaProducer = null;
+
+/* ==========================================================
+   CONEXIÓN CON KAFKA
+   ========================================================== */
+
+async function conectarKafka() {
+    const brokers = process.env.KAFKA_BROKERS;
+
+    if (!brokers) {
+        console.log('Kafka no configurado. Se omitirá la conexión.');
+        return;
+    }
+
+    const kafka = new Kafka({
+        clientId: 'techforge-backend',
+        brokers: brokers.split(',').map(broker => broker.trim())
+    });
+
+    const producer = kafka.producer();
+
+    try {
+        await producer.connect();
+
+        kafkaProducer = producer;
+
+        console.log('Conexión con Kafka establecida correctamente.');
+    } catch (error) {
+        kafkaProducer = null;
+
+        console.error(
+            'No se pudo conectar con Kafka:',
+            error.message
+        );
+
+        await producer.disconnect().catch(() => {});
+    }
 }
 
-function createSessionCookie(res, user) {
+/* ==========================================================
+   AUTENTICACIÓN Y SESIONES
+   ========================================================== */
+
+// Obtener cookie
+function getCookie(req, name) {
+    const header = req.headers.cookie || '';
+
+    const part = header
+        .split(';')
+        .map(value => value.trim())
+        .find(value => value.startsWith(name + '='));
+
+    return part
+        ? decodeURIComponent(part.slice(name.length + 1))
+        : null;
+}
+
+// Crear sesión
+
+function createSessionCookie(res, user, tipo = 'cliente') {
     const token = jwt.sign(
-        { sub: user._id.toString(), email: user.email },
+        {
+            sub: user._id.toString(),
+            email: user.email,
+            tipo
+        },
         AUTH_SECRET,
-        { expiresIn: `${SESSION_DAYS}d` }
+        {
+            expiresIn: `${SESSION_DAYS}d`
+        }
     );
 
     res.cookie(COOKIE_NAME, token, {
@@ -57,6 +140,8 @@ function createSessionCookie(res, user) {
     });
 }
 
+
+// Eliminar sesión
 function clearSessionCookie(res) {
     res.clearCookie(COOKIE_NAME, {
         httpOnly: true,
@@ -66,10 +151,14 @@ function clearSessionCookie(res) {
     });
 }
 
+// Middleware de autenticación
 function requireAuth(req, res, next) {
     const token = getCookie(req, COOKIE_NAME);
+
     if (!token) {
-        return res.status(401).json({ error: 'Inicia sesión para continuar.' });
+        return res.status(401).json({
+            error: 'Inicia sesión para continuar.'
+        });
     }
 
     try {
@@ -77,13 +166,110 @@ function requireAuth(req, res, next) {
         next();
     } catch (error) {
         clearSessionCookie(res);
-        return res.status(401).json({ error: 'Tu sesión expiró. Inicia sesión nuevamente.' });
+
+        return res.status(401).json({
+            error: 'Tu sesión expiró. Inicia sesión nuevamente.'
+        });
     }
 }
 
-// Registro de usuario
+// Middleware exclusivo para administradores
+async function requireAdmin(req, res, next) {
+    try {
+        if (req.auth.tipo !== 'admin') {
+            return res.status(403).json({
+                error: 'Acceso exclusivo para administradores.'
+            });
+        }
 
-// Registro de usuario
+        if (!ObjectId.isValid(req.auth.sub)) {
+            return res.status(401).json({
+                error: 'Sesión de administrador no válida.'
+            });
+        }
+
+        const administrador = await db.collection('administradores').findOne({
+            _id: new ObjectId(req.auth.sub),
+            email: req.auth.email
+        });
+
+        if (!administrador) {
+            return res.status(403).json({
+                error: 'La cuenta de administrador no está autorizada.'
+            });
+        }
+
+        req.admin = administrador;
+        next();
+
+    } catch (error) {
+        console.error('Error al validar administrador:', error);
+
+        return res.status(500).json({
+            error: 'No se pudo validar el acceso.'
+        });
+    }
+}
+
+
+/* ==========================================================
+   AUTENTICACIÓN: ADMINISTRADORES
+   ========================================================== */
+
+app.post('/api/admin/login', async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const password = String(req.body.password || '');
+
+        if (!email || !password) {
+            return res.status(400).json({
+                error: 'Escribe tu correo y contraseña.'
+            });
+        }
+
+        const administrador = await db.collection('administradores')
+            .findOne({ email });
+
+        if (!administrador) {
+            return res.status(401).json({
+                error: 'Correo o contraseña incorrectos.'
+            });
+        }
+
+        const coincide = await bcrypt.compare(
+            password,
+            administrador.passwordHash
+        );
+
+        if (!coincide) {
+            return res.status(401).json({
+                error: 'Correo o contraseña incorrectos.'
+            });
+        }
+
+        createSessionCookie(res, administrador, 'admin');
+
+        return res.json({
+            mensaje: 'Sesión de administrador iniciada.',
+            administrador: {
+                nombre: administrador.nombre,
+                email: administrador.email
+            }
+        });
+
+    } catch (error) {
+        console.error('Error al iniciar sesión de administrador:', error);
+
+        return res.status(500).json({
+            error: 'No se pudo iniciar sesión.'
+        });
+    }
+});
+
+/* ==========================================================
+   AUTENTICACIÓN: REGISTRO
+   ========================================================== */
+
 app.post('/api/auth/register', async (req, res) => {
     try {
         const nombre = String(req.body.nombre || '').trim();
@@ -98,7 +284,10 @@ app.post('/api/auth/register', async (req, res) => {
         }
 
         // Validar correo
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) {
+        if (
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+            email.length > 160
+        ) {
             return res.status(400).json({
                 error: 'Escribe un correo electrónico válido.'
             });
@@ -113,7 +302,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         const usuarios = db.collection('usuarios');
 
-        // Comprobar si el correo ya existe
+        // Comprobar correo existente
         const existente = await usuarios.findOne({ email });
 
         if (existente) {
@@ -125,8 +314,8 @@ app.post('/api/auth/register', async (req, res) => {
         // Encriptar contraseña
         const passwordHash = await bcrypt.hash(password, 12);
 
-        // Crear usuario sin dirección
-        const result = await usuarios.insertOne({
+        // Crear usuario
+        const resultado = await usuarios.insertOne({
             nombre,
             email,
             passwordHash,
@@ -134,7 +323,7 @@ app.post('/api/auth/register', async (req, res) => {
         });
 
         const usuario = {
-            _id: result.insertedId,
+            _id: resultado.insertedId,
             nombre,
             email
         };
@@ -165,117 +354,197 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
+/* ==========================================================
+   AUTENTICACIÓN: INICIO DE SESIÓN
+   ========================================================== */
 
-// Inicio de sesión
 app.post('/api/auth/login', async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const password = String(req.body.password || '');
 
         if (!email || !password) {
-            return res.status(400).json({ error: 'Escribe tu correo y contraseña.' });
+            return res.status(400).json({
+                error: 'Escribe tu correo y contraseña.'
+            });
         }
 
         const usuario = await db.collection('usuarios').findOne({ email });
+
         if (!usuario) {
-            return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
+            return res.status(401).json({
+                error: 'Correo o contraseña incorrectos.'
+            });
         }
 
-        const coincide = await bcrypt.compare(password, usuario.passwordHash);
+        const coincide = await bcrypt.compare(
+            password,
+            usuario.passwordHash
+        );
+
         if (!coincide) {
-            return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
+            return res.status(401).json({
+                error: 'Correo o contraseña incorrectos.'
+            });
         }
 
         createSessionCookie(res, usuario);
+
         return res.json({
             mensaje: 'Sesión iniciada.',
             usuario: {
-    nombre: usuario.nombre,
-    email: usuario.email,
-    direccion: usuario.direccion || null
-}
+                nombre: usuario.nombre,
+                email: usuario.email,
+                direccion: usuario.direccion || null
+            }
         });
+
     } catch (error) {
         console.error('Error al iniciar sesión:', error);
-        return res.status(500).json({ error: 'No se pudo iniciar sesión.' });
+
+        return res.status(500).json({
+            error: 'No se pudo iniciar sesión.'
+        });
     }
 });
 
-// Consultar sesión actual
+/* ==========================================================
+   AUTENTICACIÓN: SESIÓN ACTUAL
+   ========================================================== */
+
 app.get('/api/auth/me', requireAuth, async (req, res) => {
     try {
-        const { ObjectId } = require('mongodb');
         const usuario = await db.collection('usuarios').findOne(
-            { _id: new ObjectId(req.auth.sub) },
-            { projection: { nombre: 1, email: 1, direccion: 1 } }
+            {
+                _id: new ObjectId(req.auth.sub)
+            },
+            {
+                projection: {
+                    nombre: 1,
+                    email: 1,
+                    direccion: 1
+                }
+            }
         );
 
         if (!usuario) {
             clearSessionCookie(res);
-            return res.status(401).json({ error: 'La cuenta ya no existe.' });
+
+            return res.status(401).json({
+                error: 'La cuenta ya no existe.'
+            });
         }
 
-        res.json({ autenticado: true, usuario });
+        return res.json({
+            autenticado: true,
+            usuario
+        });
+
     } catch (error) {
         console.error('Error al consultar sesión:', error);
-        res.status(401).json({ error: 'Sesión no válida.' });
+
+        return res.status(401).json({
+            error: 'Sesión no válida.'
+        });
     }
 });
-// Obtener la dirección guardada del usuario autenticado
+
+/* ==========================================================
+   DIRECCIONES: CONSULTAR
+   ========================================================== */
+
 app.get('/api/auth/direccion', requireAuth, async (req, res) => {
     try {
         const usuario = await db.collection('usuarios').findOne(
-            { _id: new ObjectId(req.auth.sub) },
-            { projection: { direccion: 1 } }
+            {
+                _id: new ObjectId(req.auth.sub)
+            },
+            {
+                projection: {
+                    direccion: 1
+                }
+            }
         );
 
         if (!usuario) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
+            return res.status(404).json({
+                error: 'Usuario no encontrado.'
+            });
         }
 
-        res.json({ direccion: usuario.direccion || null });
+        return res.json({
+            direccion: usuario.direccion || null
+        });
+
     } catch (error) {
         console.error('Error al consultar dirección:', error);
-        res.status(500).json({ error: 'No se pudo consultar la dirección' });
+
+        return res.status(500).json({
+            error: 'No se pudo consultar la dirección.'
+        });
     }
 });
 
-// Guardar o actualizar la dirección del usuario autenticado
+/* ==========================================================
+   DIRECCIONES: GUARDAR O ACTUALIZAR
+   ========================================================== */
+
 app.put('/api/auth/direccion', requireAuth, async (req, res) => {
     try {
         const direccion = req.body.direccion;
 
-        // Permite borrar la dirección guardada
+        // Eliminar dirección guardada
         if (direccion === null) {
             await db.collection('usuarios').updateOne(
-                { _id: new ObjectId(req.auth.sub) },
-                { $unset: { direccion: '' } }
+                {
+                    _id: new ObjectId(req.auth.sub)
+                },
+                {
+                    $unset: {
+                        direccion: ''
+                    }
+                }
             );
 
-            return res.json({ mensaje: 'Dirección eliminada' });
+            return res.json({
+                mensaje: 'Dirección eliminada.'
+            });
         }
 
         const campos = [
-            'nombre', 'tel', 'calle', 'colonia',
-            'cp', 'ciudad', 'estado'
+            'nombre',
+            'tel',
+            'calle',
+            'colonia',
+            'cp',
+            'ciudad',
+            'estado'
         ];
 
-        if (!direccion || campos.some(campo =>
-            typeof direccion[campo] !== 'string' ||
-            !direccion[campo].trim()
-        )) {
+        // Validar campos obligatorios
+        if (
+            !direccion ||
+            campos.some(campo =>
+                typeof direccion[campo] !== 'string' ||
+                !direccion[campo].trim()
+            )
+        ) {
             return res.status(400).json({
-                error: 'Completa todos los campos obligatorios de la dirección'
+                error: 'Completa todos los campos obligatorios de la dirección.'
             });
         }
 
-        if (!/^\d{10}$/.test(direccion.tel) ||
-            !/^\d{5}$/.test(direccion.cp)) {
+        // Validar teléfono y código postal
+        if (
+            !/^\d{10}$/.test(direccion.tel) ||
+            !/^\d{5}$/.test(direccion.cp)
+        ) {
             return res.status(400).json({
-                error: 'El teléfono o código postal no tienen un formato válido'
+                error: 'El teléfono o código postal no tienen un formato válido.'
             });
         }
 
+        // Limpiar datos
         const direccionLimpia = {
             nombre: direccion.nombre.trim(),
             tel: direccion.tel.trim(),
@@ -284,40 +553,67 @@ app.put('/api/auth/direccion', requireAuth, async (req, res) => {
             cp: direccion.cp.trim(),
             ciudad: direccion.ciudad.trim(),
             estado: direccion.estado.trim(),
-            ref: typeof direccion.ref === 'string' ? direccion.ref.trim() : ''
+            ref: typeof direccion.ref === 'string'
+                ? direccion.ref.trim()
+                : ''
         };
 
         const resultado = await db.collection('usuarios').updateOne(
-            { _id: new ObjectId(req.auth.sub) },
-            { $set: { direccion: direccionLimpia } }
+            {
+                _id: new ObjectId(req.auth.sub)
+            },
+            {
+                $set: {
+                    direccion: direccionLimpia
+                }
+            }
         );
 
         if (!resultado.matchedCount) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
+            return res.status(404).json({
+                error: 'Usuario no encontrado.'
+            });
         }
 
-        res.json({
-            mensaje: 'Dirección guardada correctamente',
+        return res.json({
+            mensaje: 'Dirección guardada correctamente.',
             direccion: direccionLimpia
         });
+
     } catch (error) {
         console.error('Error al guardar dirección:', error);
-        res.status(500).json({ error: 'No se pudo guardar la dirección' });
+
+        return res.status(500).json({
+            error: 'No se pudo guardar la dirección.'
+        });
     }
 });
-// Cerrar sesión
+
+/* ==========================================================
+   AUTENTICACIÓN: CERRAR SESIÓN
+   ========================================================== */
+
 app.post('/api/auth/logout', (req, res) => {
     clearSessionCookie(res);
-    res.json({ mensaje: 'Sesión cerrada.' });
+
+    return res.json({
+        mensaje: 'Sesión cerrada.'
+    });
 });
 
-// API de productos
+/* ==========================================================
+   API DE PRODUCTOS
+   ========================================================== */
+
 app.get('/api/productos', async (req, res) => {
     const cacheKey = 'techforge:productos';
+
     try {
+        // Consultar Redis
         if (redis) {
             try {
                 const productosCache = await redis.get(cacheKey);
+
                 if (productosCache !== null) {
                     console.log('Productos obtenidos desde Redis');
                     return res.json(productosCache);
@@ -327,30 +623,48 @@ app.get('/api/productos', async (req, res) => {
             }
         }
 
-        const productos = await db.collection('productos').find({}).toArray();
+        // Consultar MongoDB
+        const productos = await db.collection('productos')
+            .find({})
+            .toArray();
 
+        // Guardar en Redis
         if (redis) {
             try {
-                await redis.set(cacheKey, productos, { ex: CACHE_TTL });
+                await redis.set(cacheKey, productos, {
+                    ex: CACHE_TTL
+                });
+
                 console.log('Productos guardados en Redis');
             } catch (error) {
                 console.error('Error al guardar productos en Redis:', error.message);
             }
         }
-        res.json(productos);
+
+        return res.json(productos);
+
     } catch (error) {
         console.error('Error al obtener los productos:', error);
-        res.status(500).json({ error: 'Error al obtener los productos' });
+
+        return res.status(500).json({
+            error: 'Error al obtener los productos.'
+        });
     }
 });
 
-// API de categorías
+/* ==========================================================
+   API DE CATEGORÍAS
+   ========================================================== */
+
 app.get('/api/categorias', async (req, res) => {
     const cacheKey = 'techforge:categorias';
+
     try {
+        // Consultar Redis
         if (redis) {
             try {
                 const categoriasCache = await redis.get(cacheKey);
+
                 if (categoriasCache !== null) {
                     console.log('Categorías obtenidas desde Redis');
                     return res.json(categoriasCache);
@@ -360,35 +674,56 @@ app.get('/api/categorias', async (req, res) => {
             }
         }
 
-        const categorias = await db.collection('categorias').find({}).toArray();
+        // Consultar MongoDB
+        const categorias = await db.collection('categorias')
+            .find({})
+            .toArray();
 
+        // Guardar en Redis
         if (redis) {
             try {
-                await redis.set(cacheKey, categorias, { ex: CACHE_TTL });
+                await redis.set(cacheKey, categorias, {
+                    ex: CACHE_TTL
+                });
+
                 console.log('Categorías guardadas en Redis');
             } catch (error) {
                 console.error('Error al guardar categorías en Redis:', error.message);
             }
         }
-        res.json(categorias);
+
+        return res.json(categorias);
+
     } catch (error) {
         console.error('Error al obtener las categorías:', error);
-        res.status(500).json({ error: 'Error al obtener las categorías' });
+
+        return res.status(500).json({
+            error: 'Error al obtener las categorías.'
+        });
     }
 });
 
-// Estado de conexiones
+/* ==========================================================
+   ESTADO DE CONEXIONES
+   ========================================================== */
+
 app.get('/api/estado', async (req, res) => {
     let mongoConectada = false;
     let redisConectado = false;
 
+    // Comprobar MongoDB
     try {
-        await db.command({ ping: 1 });
+        await db.command({
+            ping: 1
+        });
+
         mongoConectada = true;
+
     } catch (error) {
         console.error('Error MongoDB:', error.message);
     }
 
+    // Comprobar Redis
     try {
         if (redis) {
             await redis.ping();
@@ -398,63 +733,410 @@ app.get('/api/estado', async (req, res) => {
         console.error('Error Redis:', error.message);
     }
 
-    res.json({
+    return res.json({
         servidor: 'funcionando',
         mongoDB: mongoConectada,
         redis: redisConectado,
+        kafka: Boolean(kafkaProducer),
         cacheTTL: CACHE_TTL
     });
 });
+
+/* ==========================================================
+   FRONTEND
+   ========================================================== */
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-app.use((req, res) => {
-    res.status(404).json({ error: 'Ruta no encontrada' });
+/* ==========================================================
+   PEDIDOS
+   ========================================================== */
+
+// Crear un pedido y guardarlo en MongoDB
+app.post('/api/pedidos', requireAuth, async (req, res) => {
+    try {
+        const { items, direccion, pago } = req.body;
+
+        // Validaciones básicas
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                error: 'El pedido no contiene productos.'
+            });
+        }
+
+        if (!direccion || !direccion.nombre || !direccion.calle ||
+            !direccion.colonia || !direccion.cp || !direccion.ciudad ||
+            !direccion.estado || !direccion.tel) {
+            return res.status(400).json({
+                error: 'La dirección de envío está incompleta.'
+            });
+        }
+
+        if (!pago || !pago.marca || !/^\d{4}$/.test(pago.ultimos4 || '')) {
+            return res.status(400).json({
+                error: 'Los datos de pago son inválidos.'
+            });
+        }
+
+        // Validar y normalizar los productos recibidos
+        const cantidades = new Map();
+
+        for (const item of items) {
+            const sku = String(item.sku || '').trim();
+            const cantidad = Number(item.cantidad);
+
+            if (!sku || !Number.isInteger(cantidad) || cantidad < 1) {
+                return res.status(400).json({
+                    error: 'Hay productos o cantidades inválidas.'
+                });
+            }
+
+            cantidades.set(sku, (cantidades.get(sku) || 0) + cantidad);
+        }
+
+        const skus = [...cantidades.keys()];
+
+        // Consultar los productos directamente en MongoDB
+        const productos = await db.collection('productos')
+            .find({ sku: { $in: skus } })
+            .toArray();
+
+        if (productos.length !== skus.length) {
+            return res.status(400).json({
+                error: 'Uno o más productos ya no están disponibles.'
+            });
+        }
+
+        const productosPedido = [];
+
+        for (const producto of productos) {
+            const cantidad = cantidades.get(producto.sku);
+            const precio = Number(producto.precio);
+            const stock = Number(producto.stock);
+
+            if (!Number.isFinite(precio) || precio < 0) {
+                return res.status(400).json({
+                    error: `Precio inválido para ${producto.sku}.`
+                });
+            }
+
+            if (!Number.isFinite(stock) || cantidad > stock) {
+                return res.status(409).json({
+                    error: `Stock insuficiente para ${producto.nombre}.`
+                });
+            }
+
+            productosPedido.push({
+                sku: producto.sku,
+                nombre: producto.nombre,
+                precio,
+                cantidad
+            });
+        }
+
+        // Calcular importes en el servidor
+        const subtotal = productosPedido.reduce(
+            (total, item) => total + item.precio * item.cantidad,
+            0
+        );
+
+        const envio = subtotal === 0 ? 0 : (subtotal >= 2000 ? 0 : 150);
+        const total = subtotal + envio;
+
+        const fecha = new Date();
+
+        const pedido = {
+            numero: 'TF-' +
+                fecha.toISOString().slice(0, 10).replace(/-/g, '') +
+                '-' +
+                require('crypto').randomBytes(3).toString('hex').toUpperCase(),
+
+            usuarioId: req.auth.sub,
+            fecha,
+
+            items: productosPedido,
+            direccion: {
+                nombre: String(direccion.nombre).trim(),
+                tel: String(direccion.tel).trim(),
+                calle: String(direccion.calle).trim(),
+                colonia: String(direccion.colonia).trim(),
+                cp: String(direccion.cp).trim(),
+                ciudad: String(direccion.ciudad).trim(),
+                estado: String(direccion.estado).trim(),
+                ref: String(direccion.ref || '').trim()
+            },
+
+            pago: {
+                marca: String(pago.marca).trim(),
+                ultimos4: pago.ultimos4
+            },
+
+            subtotal,
+            envio,
+            total,
+            estado: 'Pagado (simulado)'
+        };
+
+        // Guardar primero en MongoDB
+        const resultado = await db.collection('pedidos').insertOne(pedido);
+
+        pedido._id = resultado.insertedId;
+
+        // Publicar evento en Kafka
+        let eventoKafka = 'pendiente';
+
+        if (kafkaProducer) {
+            try {
+                await kafkaProducer.send({
+                    topic: 'pedidos',
+                    messages: [{
+                        key: pedido.numero,
+                        value: JSON.stringify({
+                            tipo: 'PEDIDO_CREADO',
+                            pedidoId: pedido._id.toString(),
+                            numero: pedido.numero,
+                            usuarioId: pedido.usuarioId,
+                            fecha: pedido.fecha,
+                            total: pedido.total,
+                            items: pedido.items
+                        })
+                    }]
+                });
+
+                eventoKafka = 'publicado';
+            } catch (error) {
+                console.error('Error publicando pedido en Kafka:', error.message);
+            }
+        }
+
+        return res.status(201).json({
+            mensaje: 'Pedido registrado correctamente.',
+            pedido,
+            eventoKafka
+        });
+
+    } catch (error) {
+        console.error('Error al crear pedido:', error);
+
+        return res.status(500).json({
+            error: 'No se pudo registrar el pedido.'
+        });
+    }
 });
+
+// Consultar los pedidos del usuario que inició sesión
+app.get('/api/pedidos/mis-pedidos', requireAuth, async (req, res) => {
+    try {
+        const pedidos = await db.collection('pedidos')
+            .find({ usuarioId: req.auth.sub })
+            .sort({ fecha: -1 })
+            .toArray();
+
+        res.json(pedidos);
+
+    } catch (error) {
+        console.error('Error al consultar pedidos:', error);
+
+        res.status(500).json({
+            error: 'No se pudieron consultar tus pedidos.'
+        });
+    }
+});
+
+
+// Consultar todos los pedidos (solo administradores)
+
+// Consultar todos los pedidos (solo administradores)
+app.get('/api/admin/pedidos', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const pedidos = await db.collection('pedidos')
+            .find(
+                {},
+                {
+                    projection: {
+                        numero: 1,
+                        usuarioId: 1,
+                        fecha: 1,
+                        items: 1,
+                        'direccion.nombre': 1,
+                        subtotal: 1,
+                        envio: 1,
+                        total: 1,
+                        estado: 1
+                    }
+                }
+            )
+            .sort({ fecha: -1 })
+            .toArray();
+
+        return res.json(pedidos);
+
+    } catch (error) {
+        console.error('Error al consultar pedidos de administración:', error);
+
+        return res.status(500).json({
+            error: 'No se pudieron consultar los pedidos.'
+        });
+    }
+});
+
+
+
+/* ==========================================================
+   RUTA NO ENCONTRADA
+   ========================================================== */
+
+app.use((req, res) => {
+    res.status(404).json({
+        error: 'Ruta no encontrada.'
+    });
+});
+
+/* ==========================================================
+   INICIAR SERVIDOR
+   ========================================================== */
 
 async function iniciarServidor() {
     try {
-        if (!MONGO_URI) throw new Error('No se encontró MONGO_URI');
-        if (!AUTH_SECRET || AUTH_SECRET.length < 32) {
-            throw new Error('Configura AUTH_JWT_SECRET con una cadena aleatoria de al menos 32 caracteres.');
+        // Validar variables obligatorias
+        if (!MONGO_URI) {
+            throw new Error('No se encontró MONGO_URI en el archivo .env');
         }
 
-        client = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 15000 });
+        if (!AUTH_SECRET || AUTH_SECRET.length < 32) {
+            throw new Error(
+                'Configura AUTH_JWT_SECRET con una cadena aleatoria de al menos 32 caracteres.'
+            );
+        }
+
+        // Conectar MongoDB
+        client = new MongoClient(MONGO_URI, {
+            serverSelectionTimeoutMS: 15000
+        });
+
         await client.connect();
 
         db = client.db('techforge');
-        await db.command({ ping: 1 });
-        await db.collection('usuarios').createIndex({ email: 1 }, { unique: true });
+
+        await db.command({
+            ping: 1
+        });
+
+        // Índice único para los correos
+        await db.collection('usuarios').createIndex(
+            {
+                email: 1
+            },
+            {
+                unique: true
+            }
+        );
+        // Índice único para los administradores
+await db.collection('administradores').createIndex(
+    {
+        email: 1
+    },
+    {
+        unique: true
+    }
+);
 
         console.log('¡Conectado exitosamente a MongoDB Atlas!');
 
-        if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-            redis = new Redis({
-                url: process.env.UPSTASH_REDIS_REST_URL,
-                token: process.env.UPSTASH_REDIS_REST_TOKEN
-            });
-            await redis.ping();
-            console.log('¡Conectado exitosamente a Upstash Redis!');
+        // Conectar Redis
+        if (
+            process.env.UPSTASH_REDIS_REST_URL &&
+            process.env.UPSTASH_REDIS_REST_TOKEN
+        ) {
+            try {
+                redis = new Redis({
+                    url: process.env.UPSTASH_REDIS_REST_URL,
+                    token: process.env.UPSTASH_REDIS_REST_TOKEN
+                });
+
+                await redis.ping();
+
+                console.log('¡Conectado exitosamente a Upstash Redis!');
+
+            } catch (error) {
+                redis = null;
+
+                console.error(
+                    'No se pudo conectar con Redis. El servidor continuará sin caché:',
+                    error.message
+                );
+            }
         } else {
-            console.warn('Redis no está configurado. El servidor continuará sin caché.');
+            console.warn(
+                'Redis no está configurado. El servidor continuará sin caché.'
+            );
         }
 
+        // Conectar Kafka
+        await conectarKafka();
+
+        // Iniciar servidor
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`Servidor corriendo en el puerto ${PORT}`);
         });
+
     } catch (error) {
-        console.error('Error al iniciar el servidor:', error.message);
-        if (client) await client.close().catch(() => {});
+        console.error('Error al iniciar el servidor:', error);
+
+        if (kafkaProducer) {
+            await kafkaProducer.disconnect().catch(() => {});
+            kafkaProducer = null;
+        }
+
+        if (client) {
+            await client.close().catch(() => {});
+            client = null;
+        }
+
         process.exit(1);
     }
 }
 
-process.on('SIGTERM', async () => {
-    console.log('Cerrando servidor...');
-    if (client) await client.close().catch(() => {});
+/* ==========================================================
+   CIERRE CONTROLADO DEL SERVIDOR
+   ========================================================== */
+
+let cerrandoServidor = false;
+
+async function cerrarServidor() {
+    if (cerrandoServidor) return;
+
+    cerrandoServidor = true;
+
+    console.log('Cerrando conexiones del servidor...');
+
+    if (kafkaProducer) {
+        await kafkaProducer.disconnect().catch(error => {
+            console.error('Error al cerrar Kafka:', error.message);
+        });
+
+        kafkaProducer = null;
+    }
+
+    if (client) {
+        await client.close().catch(error => {
+            console.error('Error al cerrar MongoDB:', error.message);
+        });
+
+        client = null;
+    }
+
+    console.log('Conexiones cerradas correctamente.');
     process.exit(0);
-});
+}
+
+process.on('SIGTERM', cerrarServidor);
+process.on('SIGINT', cerrarServidor);
+
+/* ==========================================================
+   EJECUCIÓN
+   ========================================================== */
 
 iniciarServidor();
